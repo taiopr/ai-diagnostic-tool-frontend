@@ -156,12 +156,14 @@ export default function Page() {
     <div className="flex min-h-screen flex-col">
       <TopBar stats={stats} />
       <div className="flex flex-1 flex-col md:flex-row">
-        <SessionSidebar
-          sessions={sessions}
-          activeId={active?.id ?? null}
-          onSelect={handleSelectSession}
-        />
-        <main className="flex-1 overflow-y-auto">
+        <div className="order-2 shrink-0 md:order-none">
+          <SessionSidebar
+            sessions={sessions}
+            activeId={active?.id ?? null}
+            onSelect={handleSelectSession}
+          />
+        </div>
+        <main className="order-1 flex-1 overflow-y-auto md:order-none">
           <div className="mx-auto grid max-w-6xl gap-6 p-6 lg:grid-cols-2">
             <section className="flex flex-col gap-3">
               <h2 className="text-sm font-semibold text-foreground">
