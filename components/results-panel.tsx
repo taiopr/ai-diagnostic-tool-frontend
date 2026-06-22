@@ -1,183 +1,277 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ArrowRight, Wrench, ClipboardCheck } from "lucide-react"
+import {
+  ChevronDown,
+  ArrowRight,
+  Wrench,
+  ClipboardCheck,
+  GitCompare,
+  ChevronUp,
+  Copy,
+  Check,
+  Play,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   type DiagnosticSession,
+  type DiagnosticIssue,
   type Severity,
   scoreColor,
   severityColor,
 } from "@/lib/diagnostic-data"
+import type { DiagnosticMode } from "@/components/diagnostic-form"
+
+function formatLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+function scoreLabel(score: number): string {
+  if (score < 40) return "Critical"
+  if (score < 70) return "Fair"
+  if (score < 85) return "Good"
+  return "Great"
+}
+
+function ScoreGauge({ score }: { score: number }) {
+  const color = scoreColor(score)
+  const radius = 34
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference * (1 - score / 100)
+
+  return (
+    <div className="relative flex shrink-0 flex-col items-center justify-center">
+      <svg width="84" height="84" viewBox="0 0 84 84" className="-rotate-90">
+        <circle cx="42" cy="42" r={radius} fill="none" stroke="currentColor"
+          strokeWidth="7" className="text-border" />
+        <circle cx="42" cy="42" r={radius} fill="none" stroke={color}
+          strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+          style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className="text-xl font-bold tabular-nums leading-none" style={{ color }}>
+          {score}
+        </span>
+        <span className="text-[9px] text-muted-foreground">/100</span>
+        <span className="mt-0.5 text-[9px] font-semibold leading-none" style={{ color }}>
+          {scoreLabel(score)}
+        </span>
+      </div>
+    </div>
+  )
+}
 
 function SeverityTag({ severity }: { severity: Severity }) {
   const color = severityColor(severity)
   return (
     <span
       className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide"
-      style={{
-        color,
-        backgroundColor: `color-mix(in oklch, ${color} 16%, transparent)`,
-      }}
+      style={{ color, backgroundColor: `color-mix(in oklch, ${color} 16%, transparent)` }}
     >
       {severity}
     </span>
   )
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color = scoreColor(score)
-  return (
-    <div
-      className="flex size-24 shrink-0 flex-col items-center justify-center rounded-2xl border"
-      style={{
-        color,
-        borderColor: `color-mix(in oklch, ${color} 40%, transparent)`,
-        backgroundColor: `color-mix(in oklch, ${color} 12%, transparent)`,
-      }}
-    >
-      <span className="text-3xl font-bold tabular-nums">{score}</span>
-      <span className="text-xs font-medium text-muted-foreground">/ 100</span>
-    </div>
-  )
-}
-
-function OutputBlock({
-  title,
-  text,
-  tone,
-}: {
-  title: string
-  text: string
-  tone: "original" | "improved"
+function OutputBlock({ title, text, tone }: {
+  title: string; text: string; tone: "original" | "improved"
 }) {
   return (
     <div className="flex flex-1 flex-col gap-2">
-      <span
-        className={cn(
-          "text-xs font-semibold uppercase tracking-wide",
-          tone === "improved" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
+      <span className={cn("text-xs font-semibold uppercase tracking-wide",
+        tone === "improved" ? "text-primary" : "text-muted-foreground")}>
         {title}
       </span>
-      <pre
-        className={cn(
-          "h-full whitespace-pre-wrap rounded-lg border p-3 font-mono text-sm text-foreground",
-          tone === "improved"
-            ? "border-primary/30 bg-primary/5"
-            : "border-border bg-background",
-        )}
-      >
+      <pre className={cn("h-full whitespace-pre-wrap rounded-lg border p-3 font-mono text-sm text-foreground",
+        tone === "improved" ? "border-primary/30 bg-primary/5" : "border-border bg-background")}>
         {text}
       </pre>
     </div>
   )
 }
 
-export function ResultsPanel({ session }: { session: DiagnosticSession }) {
-  const [showRewrite, setShowRewrite] = useState(false)
+function IssueCard({ issue }: { issue: DiagnosticIssue }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <button type="button" onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent">
+        <SeverityTag severity={issue.severity} />
+        <span className="text-sm font-medium text-foreground">{formatLabel(issue.type)}</span>
+        <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform",
+          expanded && "rotate-180")} />
+      </button>
+      {expanded && (
+        <div className="flex flex-col gap-2 border-t border-border px-4 py-3">
+          <p className="text-sm leading-relaxed text-muted-foreground">{issue.explanation}</p>
+          <div className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3">
+            <Wrench className="mt-0.5 size-4 shrink-0 text-primary" />
+            <p className="text-sm leading-relaxed text-foreground">
+              <span className="font-medium">Fix: </span>{issue.fix}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function ResultsPanel({
+  session,
+  onRunWithFix,
+}: {
+  session: DiagnosticSession
+  onRunWithFix: (rewrittenPrompt: string, testInput: string, mode: DiagnosticMode) => void
+}) {
+  const [rewriteExpanded, setRewriteExpanded] = useState(false)
+  const [showComparison, setShowComparison] = useState(false)
+  const [showIssues, setShowIssues] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [summaryExpanded, setSummaryExpanded] = useState(false)
+
+  const color = scoreColor(session.score)
+  const summaryIsLong = session.summary && session.summary.length > 120
+
+  function handleCopy() {
+    navigator.clipboard.writeText(session.rewrittenPrompt).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Score + summary */}
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
-        <ScoreBadge score={session.score} />
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-foreground">
+    <div className="flex flex-col gap-4">
+
+      {/* 1. VERDICT */}
+      <div
+        className="flex items-start gap-4 rounded-xl border p-4"
+        style={{
+          borderColor: `color-mix(in oklch, ${color} 30%, transparent)`,
+          backgroundColor: `color-mix(in oklch, ${color} 8%, transparent)`,
+        }}
+      >
+        <ScoreGauge score={session.score} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-sm font-semibold text-foreground">
               {session.label}
             </h2>
             <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
               {session.mode === "prompt" ? "Prompt" : "n8n Workflow"}
             </span>
           </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className={cn(
+            "text-sm leading-relaxed text-muted-foreground",
+            !summaryExpanded && "line-clamp-2",
+          )}>
             {session.summary}
           </p>
-        </div>
-      </div>
-
-      {/* Issues */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">
-          Issues found ({session.issues.length})
-        </h3>
-        <div className="flex flex-col gap-3">
-          {session.issues.map((issue) => (
-            <div
-              key={issue.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"
+          {summaryIsLong && (
+            <button
+              type="button"
+              onClick={() => setSummaryExpanded((v) => !v)}
+              className="self-start text-xs font-medium text-primary underline underline-offset-2 hover:opacity-80 transition-opacity"
             >
-              <div className="flex items-center gap-2">
-                <SeverityTag severity={issue.severity} />
-                <span className="text-sm font-medium text-foreground">
-                  {issue.type}
-                </span>
-              </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {issue.explanation}
-              </p>
-              <div className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3">
-                <Wrench className="mt-0.5 size-4 shrink-0 text-primary" />
-                <p className="text-sm leading-relaxed text-foreground">
-                  <span className="font-medium">Fix: </span>
-                  {issue.fix}
-                </p>
-              </div>
-            </div>
-          ))}
+              {summaryExpanded ? "Show less" : "Read more"}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Before / after */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">
-          Output comparison
-        </h3>
-        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 lg:flex-row">
-          <OutputBlock
-            title="Original output"
-            text={session.originalOutput}
-            tone="original"
-          />
-          <div className="hidden items-center lg:flex">
-            <ArrowRight className="size-5 text-muted-foreground" />
-          </div>
-          <OutputBlock
-            title="Improved output"
-            text={session.improvedOutput}
-            tone="improved"
-          />
-        </div>
-      </div>
-
-      {/* Rewritten prompt (collapsible) */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <button
-          type="button"
-          onClick={() => setShowRewrite((v) => !v)}
-          className="flex w-full items-center gap-2 px-5 py-4 text-left transition-colors hover:bg-accent"
-        >
+      {/* 2. SUGGESTED FIX */}
+      <div className="overflow-hidden rounded-xl border border-primary/40 bg-primary/5">
+        <div className="flex items-center gap-2 border-b border-primary/20 px-4 py-3">
           <ClipboardCheck className="size-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">
-            Suggested rewritten prompt
-          </span>
-          <ChevronDown
+          <span className="text-sm font-semibold text-foreground">Suggested fix</span>
+          <button type="button" onClick={handleCopy}
             className={cn(
-              "ml-auto size-4 text-muted-foreground transition-transform",
-              showRewrite && "rotate-180",
-            )}
-          />
-        </button>
-        {showRewrite && (
-          <div className="border-t border-border p-5">
-            <pre className="whitespace-pre-wrap rounded-lg border border-primary/30 bg-primary/5 p-4 font-mono text-sm leading-relaxed text-foreground">
+              "ml-auto flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all",
+              copied
+                ? "border-primary/40 bg-primary/15 text-primary"
+                : "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20",
+            )}>
+            {copied
+              ? <><Check className="size-3" />Copied!</>
+              : <><Copy className="size-3" />Copy prompt</>}
+          </button>
+        </div>
+        <div className="p-4">
+          <div className="relative">
+            <pre className={cn(
+              "whitespace-pre-wrap rounded-lg border border-primary/30 bg-background p-4 font-mono text-sm leading-relaxed text-foreground transition-all",
+              !rewriteExpanded && "max-h-24 overflow-hidden",
+            )}>
               {session.rewrittenPrompt}
             </pre>
+            {!rewriteExpanded && (
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 rounded-b-lg bg-gradient-to-t from-background to-transparent" />
+            )}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => setRewriteExpanded((v) => !v)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-primary/20 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10">
+              {rewriteExpanded
+                ? <><ChevronUp className="size-3" />Show less</>
+                : <><ChevronDown className="size-3" />Show full prompt</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => onRunWithFix(session.rewrittenPrompt, session.testInput, session.mode)}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Play className="size-3" />
+              Run with fix
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. OUTPUT COMPARISON */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <button type="button" onClick={() => setShowComparison((v) => !v)}
+          className="flex w-full items-center gap-2 px-5 py-3 text-left transition-colors hover:bg-accent">
+          <GitCompare className="size-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Output comparison</span>
+          <span className="ml-auto mr-2 text-xs text-muted-foreground">original → improved</span>
+          <ChevronDown className={cn("size-4 text-muted-foreground transition-transform",
+            showComparison && "rotate-180")} />
+        </button>
+        {showComparison && (
+          <div className="flex flex-col gap-4 border-t border-border p-4 lg:flex-row">
+            <OutputBlock title="Original output" text={session.originalOutput} tone="original" />
+            <div className="hidden items-center lg:flex">
+              <ArrowRight className="size-5 text-muted-foreground" />
+            </div>
+            <OutputBlock title="Improved output" text={session.improvedOutput} tone="improved" />
           </div>
         )}
       </div>
+
+      {/* 4. ISSUES */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <button type="button" onClick={() => setShowIssues((v) => !v)}
+          className="flex w-full items-center gap-2 px-5 py-3 text-left transition-colors hover:bg-accent">
+          <span className="text-sm font-semibold text-foreground">Why — issues found</span>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+            {session.issues.length}
+          </span>
+          <ChevronDown className={cn("ml-auto size-4 text-muted-foreground transition-transform",
+            showIssues && "rotate-180")} />
+        </button>
+        {showIssues && (
+          <div className="flex flex-col gap-2 border-t border-border p-3">
+            {session.issues.map((issue) => (
+              <IssueCard key={issue.id} issue={issue} />
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
