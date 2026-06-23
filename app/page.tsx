@@ -68,6 +68,13 @@ function sessionDetailToSession(data: SessionDetail): DiagnosticSession {
   }
 }
 
+const MAX_LABEL_LENGTH = 36
+
+function trimToWord(text: string): string {
+  if (text.length <= MAX_LABEL_LENGTH) return text
+  return text.slice(0, MAX_LABEL_LENGTH).replace(/\s+\S*$/, "").trim()
+}
+
 function deriveLabel(promptText: string): string | null {
   if (!promptText || promptText.trim().length < 10) return null
   const firstLine = promptText
@@ -76,17 +83,24 @@ function deriveLabel(promptText: string): string | null {
     .find((l) => l.length > 5) ?? ""
   const roleMatch = firstLine.match(/^you are an?\s+(.+)/i)
   if (roleMatch) {
-    const role = roleMatch[1]
-      .replace(/\.$/, "")
+    let role = roleMatch[1]
       .replace(/\s+who.*/i, "")
       .replace(/\s+that.*/i, "")
       .trim()
-    if (role.length > 3)
-      return role.charAt(0).toUpperCase() + role.slice(1, 40)
+    const periodIdx = role.search(/[.!?]/)
+    if (periodIdx > 3) role = role.slice(0, periodIdx).trim()
+    if (role.length > 3) {
+      const trimmed = trimToWord(role)
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+    }
   }
-  const cleaned = firstLine.replace(/[{}"[\]]/g, "").trim()
-  if (cleaned.length > 5)
-    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1, 40)
+  let cleaned = firstLine.replace(/[{}"[\]]/g, "").trim()
+  const periodIdx = cleaned.search(/[.!?]/)
+  if (periodIdx > 3) cleaned = cleaned.slice(0, periodIdx).trim()
+  if (cleaned.length > 5) {
+    const trimmed = trimToWord(cleaned)
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+  }
   return null
 }
 
