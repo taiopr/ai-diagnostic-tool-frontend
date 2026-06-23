@@ -326,7 +326,7 @@ export function DiagnosticForm({
           )}
         </Button>
         {canSubmit && (
-          <p className="text-xs text-muted-foreground">
+          <p className="hidden text-xs text-muted-foreground sm:block">
             or press{" "}
             <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px]">
               Ctrl

@@ -214,9 +214,6 @@ export default function Page() {
         <main className="order-1 flex-1 overflow-y-auto md:order-none">
           <div className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-2">
             <section className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                New diagnostic
-              </h2>
               <DiagnosticForm
                 onRun={handleRun}
                 isRunning={isRunning}
@@ -236,10 +233,7 @@ export default function Page() {
               )}
             </section>
             <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Results
-                </h2>
+              <div className="flex items-center justify-end">
                 {active && !isRunning && (
                   <button
                     type="button"

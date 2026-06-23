@@ -45,7 +45,9 @@ function ScoreGauge({ score }: { score: number }) {
 
   return (
     <div className="relative flex shrink-0 flex-col items-center justify-center">
-      <svg width="84" height="84" viewBox="0 0 84 84" className="-rotate-90">
+      {/* 68px on mobile, 84px on sm+ */}
+      <svg width="68" height="68" viewBox="0 0 84 84"
+        className="-rotate-90 sm:!w-[84px] sm:!h-[84px]">
         <circle cx="42" cy="42" r={radius} fill="none" stroke="currentColor"
           strokeWidth="7" className="text-border" />
         <circle cx="42" cy="42" r={radius} fill="none" stroke={color}
@@ -54,11 +56,11 @@ function ScoreGauge({ score }: { score: number }) {
           style={{ transition: "stroke-dashoffset 0.6s ease" }} />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-xl font-bold tabular-nums leading-none" style={{ color }}>
+        <span className="text-lg font-bold tabular-nums leading-none sm:text-xl" style={{ color }}>
           {score}
         </span>
-        <span className="text-[9px] text-muted-foreground">/100</span>
-        <span className="mt-0.5 text-[9px] font-semibold leading-none" style={{ color }}>
+        <span className="text-[8px] text-muted-foreground sm:text-[9px]">/100</span>
+        <span className="mt-0.5 text-[8px] font-semibold leading-none sm:text-[9px]" style={{ color }}>
           {scoreLabel(score)}
         </span>
       </div>
@@ -157,11 +159,14 @@ export function ResultsPanel({
       >
         <ScoreGauge score={session.score} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-sm font-semibold text-foreground">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2
+              className="min-w-0 truncate text-sm font-semibold text-foreground"
+              title={session.label}
+            >
               {session.label}
             </h2>
-            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
               {session.mode === "prompt" ? "Prompt" : "n8n Workflow"}
             </span>
           </div>
@@ -184,8 +189,8 @@ export function ResultsPanel({
       </div>
 
       {/* 2. SUGGESTED FIX */}
-      <div className="overflow-hidden rounded-xl border border-primary/40 bg-primary/5">
-        <div className="flex items-center gap-2 border-b border-primary/20 px-4 py-3">
+      <div className="rounded-xl border border-primary/40">
+        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-xl border-b border-primary/20 bg-primary/5 px-4 py-3">
           <ClipboardCheck className="size-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Suggested fix</span>
           <button type="button" onClick={handleCopy}
@@ -200,14 +205,33 @@ export function ResultsPanel({
               : <><Copy className="size-3" />Copy prompt</>}
           </button>
         </div>
-        <div className="p-4">
-          <div className="relative">
-            <pre className={cn(
-              "whitespace-pre-wrap rounded-lg border border-primary/30 bg-background p-4 font-mono text-sm leading-relaxed text-foreground transition-all",
-              !rewriteExpanded && "max-h-24 overflow-hidden",
+        <div className="rounded-b-xl bg-primary/5 p-4">
+          {/* Outer container — fixed boundary, copy icon pinned here */}
+          <div className="relative rounded-lg border border-primary/30 bg-background">
+            {/* Inner container — scrolls when expanded */}
+            <div className={cn(
+              "overflow-hidden transition-all",
+              rewriteExpanded ? "max-h-72 overflow-y-auto" : "max-h-24",
             )}>
-              {session.rewrittenPrompt}
-            </pre>
+              <pre className="whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed text-foreground">
+                {session.rewrittenPrompt}
+              </pre>
+            </div>
+            {/* Copy icon — pinned in outer container, never scrolls away */}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={cn(
+                "absolute right-2 top-2 z-10 rounded-md border p-1.5 backdrop-blur-sm transition-all",
+                copied
+                  ? "border-primary/40 bg-primary/15 text-primary"
+                  : "border-border bg-background/80 text-muted-foreground hover:border-primary/30 hover:text-primary",
+              )}
+              title="Copy prompt"
+            >
+              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            </button>
+            {/* Gradient fade — only when collapsed */}
             {!rewriteExpanded && (
               <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 rounded-b-lg bg-gradient-to-t from-background to-transparent" />
             )}
@@ -216,7 +240,7 @@ export function ResultsPanel({
             <button type="button" onClick={() => setRewriteExpanded((v) => !v)}
               className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-primary/20 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10">
               {rewriteExpanded
-                ? <><ChevronUp className="size-3" />Show less</>
+                ? <><ChevronUp className="size-3" />Collapse</>
                 : <><ChevronDown className="size-3" />Show full prompt</>}
             </button>
             <button
