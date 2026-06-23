@@ -78,7 +78,7 @@ The form ships with five built-in examples — three for Prompt mode, two for n8
 ### Install
 
 ```bash
-git clone https://github.com/taiopar/ai-diagnostic-tool-frontend
+git clone https://github.com/taiopr/ai-diagnostic-tool-frontend
 cd ai-diagnostic-tool-frontend
 npm install
 ```
