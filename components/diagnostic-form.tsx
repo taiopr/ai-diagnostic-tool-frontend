@@ -194,16 +194,18 @@ export function DiagnosticForm({
           <span className="text-sm font-medium text-foreground">
             Try an example
           </span>
-          {hasContent && (
-            <button
-              type="button"
-              onClick={clearInputs}
-              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <X className="size-3" />
-              Clear inputs
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={clearInputs}
+            disabled={!hasContent}
+            className={cn(
+              "flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground",
+              !hasContent && "invisible",
+            )}
+          >
+            <X className="size-3" />
+            Clear inputs
+          </button>
         </div>
         <div className="flex flex-wrap gap-2">
           {visibleExamples.map((example) => (
